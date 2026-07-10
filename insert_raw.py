@@ -8,6 +8,7 @@ SEBELUM RUN:
 """
 
 import psycopg2
+import psycopg2.extras
 import json
 import sys
 import os
@@ -17,6 +18,8 @@ from datetime import datetime
 # Guna GitHub Secrets (env var) kalau ada, fallback ke placeholder untuk local test
 # =========================
 CONNECTION_STRING = os.environ.get("SUPABASE_CONNECTION_STRING", "ISI_CONNECTION_STRING_DISINI")
+
+BATCH_SIZE = 1000
 
 
 def insert_raw(json_file_path):
@@ -28,29 +31,25 @@ def insert_raw(json_file_path):
     conn = psycopg2.connect(CONNECTION_STRING)
     cur = conn.cursor()
 
-    inserted = 0
-    for row in rows:
-        item_id = row.get("item_id")
-        raw_json = json.dumps(row)
+    now = datetime.now()
+    values = [(row.get("item_id"), json.dumps(row), now) for row in rows]
 
-        cur.execute(
-            """
-            INSERT INTO raw_ebay_listings (item_id, raw_json, scraped_at)
-            VALUES (%s, %s, %s)
-            """,
-            (item_id, raw_json, datetime.now())
+    total_inserted = 0
+    for i in range(0, len(values), BATCH_SIZE):
+        batch = values[i:i + BATCH_SIZE]
+        psycopg2.extras.execute_values(
+            cur,
+            "INSERT INTO raw_ebay_listings (item_id, raw_json, scraped_at) VALUES %s",
+            batch
         )
-        inserted += 1
+        conn.commit()
+        total_inserted += len(batch)
+        print(f"Batch inserted: {total_inserted} row...")
 
-        if inserted % 500 == 0:
-            conn.commit()
-            print(f"Committed {inserted} row...")
-
-    conn.commit()
     cur.close()
     conn.close()
 
-    print(f"\nDone. Total {inserted} row inserted ke raw_ebay_listings.")
+    print(f"\nDone. Total {total_inserted} row inserted ke raw_ebay_listings.")
 
 
 if __name__ == "__main__":
@@ -59,3 +58,4 @@ if __name__ == "__main__":
         sys.exit(1)
 
     insert_raw(sys.argv[1])
+

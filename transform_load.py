@@ -17,6 +17,8 @@ from datetime import datetime
 # =========================
 CONNECTION_STRING = os.environ.get("SUPABASE_CONNECTION_STRING", "ISI_CONNECTION_STRING_DISINI")
 
+BATCH_SIZE = 1000
+
 
 def clean_price(value):
     """Convert price string ke float, handle None/invalid."""
@@ -76,8 +78,7 @@ def transform_and_load():
     raw_rows = cur.fetchall()
     print(f"Jumpa {len(raw_rows)} raw row untuk transform hari ini.")
 
-    insert_cur = conn.cursor()
-    cleaned_count = 0
+    values = []
     skipped_count = 0
 
     for row in raw_rows:
@@ -91,7 +92,7 @@ def transform_and_load():
 
         if not item_id or price is None:
             skipped_count += 1
-            continue  # skip row invalid, item_id/price wajib ada
+            continue
 
         total_price = round(price + shipping_cost, 2)
         condition = clean_condition(data.get("condition"))
@@ -99,15 +100,7 @@ def transform_and_load():
         snapshot_date = data.get("snapshot_date")
         price_bucket = get_price_bucket(price)
 
-        insert_cur.execute("""
-            INSERT INTO ebay_listings (
-                item_id, listing_title, category, price, shipping_cost,
-                total_price, condition, seller_location, item_creation_date,
-                snapshot_date, price_bucket
-            )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            ON CONFLICT (item_id, snapshot_date) DO NOTHING
-        """, (
+        values.append((
             item_id,
             data.get("listing_title"),
             data.get("category"),
@@ -120,16 +113,37 @@ def transform_and_load():
             snapshot_date,
             price_bucket,
         ))
-        cleaned_count += 1
 
-    conn.commit()
+    insert_cur = conn.cursor()
+    total_inserted = 0
+
+    for i in range(0, len(values), BATCH_SIZE):
+        batch = values[i:i + BATCH_SIZE]
+        psycopg2.extras.execute_values(
+            insert_cur,
+            """
+            INSERT INTO ebay_listings (
+                item_id, listing_title, category, price, shipping_cost,
+                total_price, condition, seller_location, item_creation_date,
+                snapshot_date, price_bucket
+            )
+            VALUES %s
+            ON CONFLICT (item_id, snapshot_date) DO NOTHING
+            """,
+            batch
+        )
+        conn.commit()
+        total_inserted += len(batch)
+        print(f"Batch transformed & inserted: {total_inserted} row...")
+
     insert_cur.close()
     cur.close()
     conn.close()
 
-    print(f"\nDone. {cleaned_count} row clean & inserted (dedup applied).")
+    print(f"\nDone. {total_inserted} row clean & inserted (dedup applied).")
     print(f"{skipped_count} row skipped (invalid item_id/price).")
 
 
 if __name__ == "__main__":
     transform_and_load()
+
