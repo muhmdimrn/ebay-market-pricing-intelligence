@@ -34,7 +34,7 @@ CATEGORIES = {
 }
 
 TARGET_PER_CATEGORY = 2000
-PAGE_SIZE = 50  # max limit Browse API per request
+PAGE_SIZE = 200  # max limit sebenar Browse API (bukan 50)
 
 
 def get_oauth_token():
@@ -108,7 +108,7 @@ def search_category(token, category_id, category_name, target_rows):
 
         print(f"[{category_name}] offset {offset}: +{len(items)} row, total {len(results)}")
         offset += PAGE_SIZE
-        time.sleep(0.5)  # jaga rate limit API
+        time.sleep(0.1)  # jaga rate limit API, kurangkan sebab jauh bawah 5000/hari
 
     return results[:target_rows]
 
