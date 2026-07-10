@@ -12,13 +12,14 @@ import requests
 import base64
 import json
 import time
+import os
 from datetime import date, datetime
 
 # =========================
-# ISI NI LEPAS APPROVAL EBAY
+# Guna GitHub Secrets (env var) kalau ada, fallback ke placeholder untuk local test
 # =========================
-APP_ID = "ISI_APP_ID_DISINI"
-CERT_ID = "ISI_CERT_ID_DISINI"
+APP_ID = os.environ.get("EBAY_APP_ID", "ISI_APP_ID_DISINI")
+CERT_ID = os.environ.get("EBAY_CERT_ID", "ISI_CERT_ID_DISINI")
 
 TOKEN_URL = "https://api.ebay.com/identity/v1/oauth2/token"
 SEARCH_URL = "https://api.ebay.com/buy/browse/v1/item_summary/search"
@@ -121,7 +122,7 @@ def main():
         rows = search_category(token, cid, name, TARGET_PER_CATEGORY)
         all_rows.extend(rows)
 
-    out_path = f"ebay_active_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+    out_path = "ebay_latest.json"
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(all_rows, f, ensure_ascii=False, indent=2)
 
