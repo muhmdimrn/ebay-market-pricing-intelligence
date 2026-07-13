@@ -186,11 +186,3 @@ See [`analysis_queries.sql`](./analysis_queries.sql) for additional analysis dem
 | `supabase_schema.sql` | Database schema (raw + clean tables) |
 | `analysis_queries.sql` | SQL analysis queries |
 | `.github/workflows/daily_pull.yml` | Automation workflow (runs daily) |
-
----
-
-## Contact
-
-**Muhamad Ibrahim**
-GitHub: [github.com/muhamdimrn](https://github.com/muhamdimrn)
-LinkedIn: [add your link]
